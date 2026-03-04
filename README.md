@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-This plugin provides completion and aliases for [container-compose](https://github.com/apple/container-compose), Apple's native container orchestration tool that works with Docker Compose files.
+This plugin provides completion and aliases for [container-compose](https://github.com/Mcrich23/Container-Compose), a tool to manage Docker Compose files with Apple's native Container runtime.
 
 ## Installation
 
