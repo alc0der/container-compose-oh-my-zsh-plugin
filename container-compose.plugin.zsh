@@ -1,0 +1,7 @@
+alias cco='container-compose'
+alias ccup='container-compose up'
+alias ccupd='container-compose up -d'
+alias ccupb='container-compose up -b'
+alias ccupdb='container-compose up -d -b'
+alias ccdn='container-compose down'
+alias ccv='container-compose version'

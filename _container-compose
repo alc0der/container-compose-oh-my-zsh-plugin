@@ -1,0 +1,144 @@
+#compdef container-compose
+
+# ---------------------------------------------------------------------------
+#  zsh completion for container-compose
+# ---------------------------------------------------------------------------
+#  Inspired by the oh-my-zsh docker-compose completion by Steve Durrheimer
+# ---------------------------------------------------------------------------
+
+# Quietly run container-compose
+__container-compose_q() {
+    container-compose 2>/dev/null "$@"
+}
+
+# Parse service names from compose file
+__container-compose_services() {
+    [[ $PREFIX = -* ]] && return 1
+    integer ret=1
+
+    local compose_file
+    # Respect -f / --file flag if provided
+    if [[ -n "${opt_args[-f]}" ]]; then
+        compose_file="${opt_args[-f]}"
+    elif [[ -n "${opt_args[--file]}" ]]; then
+        compose_file="${opt_args[--file]}"
+    elif [[ -f compose.yml ]]; then
+        compose_file="compose.yml"
+    elif [[ -f compose.yaml ]]; then
+        compose_file="compose.yaml"
+    elif [[ -f docker-compose.yml ]]; then
+        compose_file="docker-compose.yml"
+    elif [[ -f docker-compose.yaml ]]; then
+        compose_file="docker-compose.yaml"
+    else
+        return 1
+    fi
+
+    # Extract top-level service names from the compose file
+    local -a services
+    if (( $+commands[yq] )); then
+        services=(${(f)"$(yq -r '.services | keys | .[]' "$compose_file" 2>/dev/null)"})
+    else
+        # Fallback: naive YAML parse — finds keys directly under "services:"
+        services=(${(f)"$(awk '
+            /^services:/ { in_services=1; next }
+            in_services && /^[^ ]/ { exit }
+            in_services && /^  [a-zA-Z0-9_-]+:/ {
+                sub(/:.*/, "", $1)
+                gsub(/^ +/, "", $1)
+                print $1
+            }
+        ' "$compose_file" 2>/dev/null)"})
+    fi
+
+    local already_selected
+    already_selected=$(echo $words | tr " " "|")
+    services=(${services:#(${~already_selected})})
+
+    _alternative "args:services:($services)" && ret=0
+    return ret
+}
+
+__container-compose_subcommand() {
+    local opts_help
+    opts_help='(: -)--help[Show help information]'
+
+    integer ret=1
+
+    case "$words[1]" in
+        (up)
+            _arguments \
+                $opts_help \
+                '(-d --detach)'{-d,--detach}'[Detach from container logs]' \
+                '(-b --build)'{-b,--build}'[Build images before starting]' \
+                '--no-cache[Do not use cache]' \
+                '(-f --file)'{-f,--file}'[Path to Docker Compose file]:file:_files -g "*(compose|docker-compose)*.y(a|)ml"' \
+                '*'{-e,--env}'[Set environment variables (key=value)]:env:' \
+                '*--env-file[Read environment variables from file]:env file:_files' \
+                '--gid[Set the group ID]:gid:' \
+                '(-i --interactive)'{-i,--interactive}'[Keep stdin open]' \
+                '(-t --tty)'{-t,--tty}'[Open a TTY]' \
+                '(-u --user)'{-u,--user}'[Set the user]:user:' \
+                '--uid[Set the user ID]:uid:' \
+                '(-w --workdir --cwd)'{-w,--workdir,--cwd}'[Set working directory]:dir:_directories' \
+                '*--ulimit[Set resource limits]:limit:' \
+                '--debug[Enable debug output]' \
+                '*:services:__container-compose_services' && ret=0
+            ;;
+        (down)
+            _arguments \
+                $opts_help \
+                '(-f --file)'{-f,--file}'[Path to Docker Compose file]:file:_files -g "*(compose|docker-compose)*.y(a|)ml"' \
+                '*'{-e,--env}'[Set environment variables (key=value)]:env:' \
+                '*--env-file[Read environment variables from file]:env file:_files' \
+                '--gid[Set the group ID]:gid:' \
+                '(-i --interactive)'{-i,--interactive}'[Keep stdin open]' \
+                '(-t --tty)'{-t,--tty}'[Open a TTY]' \
+                '(-u --user)'{-u,--user}'[Set the user]:user:' \
+                '--uid[Set the user ID]:uid:' \
+                '(-w --workdir --cwd)'{-w,--workdir,--cwd}'[Set working directory]:dir:_directories' \
+                '*--ulimit[Set resource limits]:limit:' \
+                '*:services:__container-compose_services' && ret=0
+            ;;
+        (version)
+            _arguments $opts_help && ret=0
+            ;;
+        (*)
+            _message 'Unknown subcommand' && ret=1
+            ;;
+    esac
+
+    return ret
+}
+
+_container-compose() {
+    local curcontext="$curcontext" state line
+    integer ret=1
+    typeset -A opt_args
+
+    _arguments -C \
+        '(- :)'{-h,--help}'[Show help information]' \
+        '(- :)--version[Show the version]' \
+        '(-): :->command' \
+        '(-)*:: :->option-or-argument' && ret=0
+
+    case $state in
+        (command)
+            local -a subcommands
+            subcommands=(
+                'up:Start containers with compose'
+                'down:Stop containers with compose'
+                'version:Display the version information'
+            )
+            _describe -t container-compose-commands "container-compose command" subcommands && ret=0
+            ;;
+        (option-or-argument)
+            curcontext=${curcontext%:*:*}:container-compose-$words[1]:
+            __container-compose_subcommand && ret=0
+            ;;
+    esac
+
+    return ret
+}
+
+_container-compose "$@"
